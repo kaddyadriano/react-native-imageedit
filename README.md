@@ -98,4 +98,4 @@ Render
 }
 
 ```
-You will send this data to crop your image.
+You will need this data for image cropping from server or other places. Hopefully in the future we will be able to crop the images right from this component.
