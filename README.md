@@ -12,10 +12,12 @@ npm install react-native-imageedit --save
 ![Demo Animation](docs/animation.gif)
 ## Simple Usage
 
-```
+Import
+```jsx
 import ImageEdit from 'react-native-imageedit'
 ```
-```
+Render
+```jsx
 <ImageEdit
   image="https://source.unsplash.com/daily" //Image uri
   onSave={info => console.log(info)}
@@ -80,7 +82,7 @@ import ImageEdit from 'react-native-imageedit'
 
 ## Cropping Info Object
 
-```
+```jsx
 {
     area: {
         width: 500,
