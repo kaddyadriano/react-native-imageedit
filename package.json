@@ -1,0 +1,35 @@
+{
+  "name": "react-native-imageedit",
+  "version": "1.0.0",
+  "description": "ImageEdit is a react native component for cropping and positioning images",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "react-native",
+    "react-component",
+    "react-native-component",
+    "android",
+    "ios",
+    "image",
+    "image edit",
+    "image cropping",
+    "image crop",
+    "cropping",
+    "inline cropping",
+    "react native"
+  ],
+  "author": "Kubwimana Adrien <kaddy05@gmail.com>",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaddyadriano/react-native-imageedit.git"
+  },
+  "peerDependencies": {
+    "react": "^15.4.2",
+    "react-native": "^0.42.0",
+    "prop-types": "^15.5.10",
+    "react-native-elements": "^1.0.0"
+  }
+}
