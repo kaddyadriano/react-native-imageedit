@@ -2,6 +2,10 @@
 
 This React Native component `ImageEdit` allows you to edit images inline for cropping. This component will provide you all the measurements you need for cropping so you can finish up with the cropping from a server or from other sources.
 
+## Updates
+### V1.0.1
+* Fixed `componentWillReceiveProps` deprecation.
+
 ## Installation
 
 ```
