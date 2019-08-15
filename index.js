@@ -60,8 +60,10 @@ export default class ImageEdit extends Component {
             },
             cropIn: this.props.cropIn,
             editing: this.props.editing,
+            editingProp: this.props.editing,
             isPinching: false,
-            isMoving: false
+            isMoving: false,
+            nextProps: false
         }
 
         this.defaultColor = "#C1272D"
@@ -95,34 +97,47 @@ export default class ImageEdit extends Component {
         }
     }
 
-    componentDidMount(){
+    componentDidUpdate(){
         this._build()
     }
 
-    componentWillReceiveProps(props){
-        this._build(props)
+    static changed(props, state){
+        let image = typeof props.image == 'object' ? props.image : {uri: props.image};
+        return props.width != state.width || props.height != state.height || state.image.uri != image.uri || props.editing != state.editingProp || props.cropIn != state.cropIn;
+    }
 
+    static getDerivedStateFromProps(props, state) {
+        let changed = ImageEdit.changed(props, state) && !state.nextProps;
+        if (changed)
+            return {
+                nextProps: props
+            };
+
+        return null;
     }
 
     _build(){
-        let props = arguments.length ? arguments[0] : this.props
-        let _this = this
-        let w = props.width || WW
-        let h = props.height || WW
-        let image = typeof props.image == 'object' ? props.image : {uri: props.image}
-        var iw = image.width || 0
-        var ih = image.height || 0
+        if(!this.state.nextProps || !ImageEdit.changed(this.state.nextProps, this.state)) return null;
+        let props = this.state.nextProps,
+            _this = this,
+            w = props.width || WW,
+            h = props.height || WW,
+            image = typeof props.image == 'object' ? props.image : {uri: props.image},
+            iw = image.width || 0,
+            ih = image.height || 0,
+            info = {
+                nextProps: false,
+                width: w,
+                height: h
+            }
 
-
-        let info = {
-            width: w,
-            height: h
+        if(props.editing) {
+            info.editing = props.editing
+            info.editingProp = props.editing
         }
+        if(props.cropIn) info.cropIn = props.cropIn
 
-        if(props.editing) info.editing = props.editing
-        if(props.cropIn) info.editing = props.cropIn
-
-        if(image.uri != this.state.image.uri){ //Only update image when is different
+        if(image.uri != this.state.image.uri){
             this.getImageSize(image).then(dim => {
                 let width = dim.width || 0,
                     height = dim.height || 0
