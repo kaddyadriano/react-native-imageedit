@@ -37,7 +37,8 @@ export default class ImageEdit extends Component {
     onSave: PropTypes.func,
     onCancel: PropTypes.func,
     saveButtonText: PropTypes.string,
-    cancelButtonText: PropTypes.string
+    cancelButtonText: PropTypes.string,
+    resizeMode: PropTypes.string
   };
 
   static defaultProps = {
@@ -56,7 +57,8 @@ export default class ImageEdit extends Component {
     gridColor: this.defaultColor,
     buttonsColor: this.defaultColor,
     saveButtonText: "Save",
-    cancelButtonText: "Cancel"
+    cancelButtonText: "Cancel",
+    resizeMode: "contain"
   };
 
   constructor(props) {
@@ -76,7 +78,8 @@ export default class ImageEdit extends Component {
       editingProp: this.props.editing,
       isPinching: false,
       isMoving: false,
-      nextProps: false
+      nextProps: false,
+      resizeMode: this.props.resizeMode
     };
 
     this.defaultColor = "#C1272D";
@@ -123,6 +126,7 @@ export default class ImageEdit extends Component {
       props.width != state.width ||
       props.height != state.height ||
       state.image.uri != image.uri ||
+      props.resizeMode != state.resizeMode ||
       props.editing != state.editingProp ||
       props.cropIn != state.cropIn
     );
@@ -148,6 +152,7 @@ export default class ImageEdit extends Component {
       _this = this,
       w = props.width || WW,
       h = props.height || WW,
+      rs = props.resizeMode,
       image =
         typeof props.image == "object" ? props.image : { uri: props.image },
       iw = image.width || 0,
@@ -155,7 +160,8 @@ export default class ImageEdit extends Component {
       info = {
         nextProps: false,
         width: w,
-        height: h
+        height: h,
+        resizeMode: rs
       };
 
     if (props.editing) {
@@ -164,11 +170,11 @@ export default class ImageEdit extends Component {
     }
     if (props.cropIn) info.cropIn = props.cropIn;
 
-    if (image.uri != this.state.image.uri) {
+    if (image.uri != this.state.image.uri || rs != this.state.resizeMode) {
       this.getImageSize(image).then(
         dim => {
-          let width = dim.width || 0,
-            height = dim.height || 0;
+          let width = rs === "contain" ? w : dim.width || 0,
+            height = rs === "contain" ? h : dim.height || 0;
 
           //Scale image size to the area
           var new_iw = w;
@@ -348,7 +354,7 @@ export default class ImageEdit extends Component {
 
   //Render Image
   renderImage() {
-    if (this.state.image.uri)
+    if (this.state.image.uri) {
       return (
         <Image
           ref={ref => (this.image = ref)}
@@ -359,9 +365,11 @@ export default class ImageEdit extends Component {
             left: this.state.image.x
           }}
           source={{ uri: this.state.image.uri }}
-          resizeMode={"stretch"}
+          resizeMode={this.state.resizeMode}
         />
       );
+    }
+    return null;
   }
 
   renderGrids() {
@@ -498,7 +506,21 @@ export default class ImageEdit extends Component {
 
   //Render component children
   renderChildren() {
-    if (this.props.children) return this.props.children;
+    if (this.props.children) {
+      return (
+        <View
+          style={[
+            styles.children,
+            this.state.editing && this.props.showSaveButtons
+              ? { bottom: 50 }
+              : null
+          ]}
+        >
+          {this.props.children}
+        </View>
+      );
+    }
+    return null;
   }
 
   render() {
@@ -582,7 +604,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    height: 50
   },
   editButton: {
     position: "absolute",
@@ -593,16 +616,27 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,1)",
     paddingVertical: 8,
     paddingHorizontal: 15,
-    borderRadius: 5
+    borderRadius: 5,
+    alignContent: "center",
+    justifyContent: "center"
   },
   cancelButton: {
     backgroundColor: "rgba(0,0,0,0.5)",
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 15,
-    borderRadius: 5
+    borderRadius: 5,
+    alignContent: "center",
+    justifyContent: "center"
   },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 14
+  },
+  children: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent"
   }
 });
