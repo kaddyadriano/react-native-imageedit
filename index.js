@@ -12,6 +12,7 @@ import {
 import { Icon } from "react-native-elements";
 import resolveAssetSource from "react-native/Libraries/Image/resolveAssetSource";
 import PropTypes from "prop-types";
+import Video from 'react-native-video';
 
 const window = Dimensions.get("window");
 const WW = window.width;
@@ -22,6 +23,7 @@ export default class ImageEdit extends Component {
     image: PropTypes.oneOfType([PropTypes.string, PropTypes.object]).isRequired,
     width: PropTypes.number,
     height: PropTypes.number,
+    scaled: PropTypes.bool,
     editing: PropTypes.bool,
     showEditButton: PropTypes.bool,
     showSaveButtons: PropTypes.bool,
@@ -45,6 +47,7 @@ export default class ImageEdit extends Component {
     image: "",
     width: WW,
     height: WW,
+    scaled: false,
     editing: false,
     showEditButton: true,
     showSaveButtons: true,
@@ -58,27 +61,31 @@ export default class ImageEdit extends Component {
     buttonsColor: this.defaultColor,
     saveButtonText: "Save",
     cancelButtonText: "Cancel",
-    resizeMode: "contain"
+    resizeMode: "stretch"
+  };
+
+  static imageDefaults = {
+    type: 'image',
+    uri: null,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0
   };
 
   constructor(props) {
     super(props);
+
     this.state = {
       width: this.props.width,
       height: this.props.height,
-      image: {
-        uri: null,
-        width: 0,
-        height: 0,
-        x: 0,
-        y: 0
-      },
+      scaled: this.props.scaled,
+      image: ImageEdit.imageDefaults,
       cropIn: this.props.cropIn,
       editing: this.props.editing,
       editingProp: this.props.editing,
       isPinching: false,
       isMoving: false,
-      nextProps: false,
       resizeMode: this.props.resizeMode
     };
 
@@ -89,20 +96,29 @@ export default class ImageEdit extends Component {
     this.initX = 0;
     this.initY = 0;
     this.initDistance = 0;
-    this._panResponder = PanResponder.create({
-      onStartShouldSetPanResponder: (evt, gestureState) => true,
-      onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) => true,
-      onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
-      onPanResponderGrant: (evt, gestureState) => {},
-      onPanResponderMove: this.onMove.bind(this),
-      onPanResponderTerminationRequest: (evt, gestureState) => true,
-      onPanResponderRelease: this.onRelease.bind(this),
-      onPanResponderTerminate: this.onRelease.bind(this),
-      onShouldBlockNativeResponder: (evt, gestureState) => {
-        return true;
-      }
-    });
+    this._panResponder = null;
+    this._panBlockNative = this.state.editing;
+  }
+
+  getPanResponder(){
+    if(this._panBlockNative != this.state.editing || !this._panResponder){
+      this._panResponder = PanResponder.create({
+        onStartShouldSetPanResponder: (evt, gestureState) => true,
+        onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
+        onMoveShouldSetPanResponder: (evt, gestureState) => true,
+        onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
+        onPanResponderGrant: (evt, gestureState) => {},
+        onPanResponderMove: this.onMove.bind(this),
+        onPanResponderTerminationRequest: (evt, gestureState) => true,
+        onPanResponderRelease: this.onRelease.bind(this),
+        onPanResponderTerminate: this.onRelease.bind(this),
+        onShouldBlockNativeResponder: (evt, gestureState) => {
+          return this.state.editing;
+        }
+      });
+      this._panBlockNative = this.state.editing;
+    }
+    return this._panResponder;
   }
 
   getInfo() {
@@ -115,118 +131,124 @@ export default class ImageEdit extends Component {
     };
   }
 
-  componentDidUpdate() {
-    this._build();
+  componentDidUpdate(){
+    this.fixImageSize();
+  }
+
+  fixImageSize(){
+    if(this.state.image.uri && !this.state.image.width){
+      let uri = this.state.image.uri;
+      if(/^http/i.test(uri) || /^file:/.test(uri)){
+        Image.getSize(
+            uri,
+            (w, h) => {
+              let sd = ImageEdit.scaledDimensions({width: this.state.width, height: this.state.height}, {width: w, height: h});
+              this.setState({image: { ...this.state.image, width: sd.width, height: sd.height }});
+            },
+            () => {}
+        );
+      }
+    }
   }
 
   static changed(props, state) {
     let image =
-      typeof props.image == "object" ? props.image : { uri: props.image };
+        typeof props.image == "object" ? props.image : { uri: props.image };
     return (
-      props.width != state.width ||
-      props.height != state.height ||
-      state.image.uri != image.uri ||
-      props.resizeMode != state.resizeMode ||
-      props.editing != state.editingProp ||
-      props.cropIn != state.cropIn
+        props.width != state.width ||
+        props.height != state.height ||
+        state.image.uri != image.uri ||
+        props.editing != state.editingProp ||
+        props.cropIn != state.cropIn ||
+        props.scaled != state.scaled ||
+        props.resizeMode != state.resizeMode
     );
   }
 
   static getDerivedStateFromProps(props, state) {
-    let changed = ImageEdit.changed(props, state) && !state.nextProps;
+    let changed = ImageEdit.changed(props, state);
     if (changed)
-      return {
-        nextProps: props
-      };
+      return ImageEdit._build(props, state) || null;
 
     return null;
   }
 
-  _build() {
-    if (
-      !this.state.nextProps ||
-      !ImageEdit.changed(this.state.nextProps, this.state)
-    )
-      return null;
-    let props = this.state.nextProps,
-      _this = this,
-      w = props.width || WW,
-      h = props.height || WW,
-      rs = props.resizeMode,
-      image =
-        typeof props.image == "object" ? props.image : { uri: props.image },
-      iw = image.width || 0,
-      ih = image.height || 0,
-      info = {
-        nextProps: false,
-        width: w,
-        height: h,
-        resizeMode: rs
-      };
+  static scaledDimensions(area, dim){
+    let width = dim.width || 0,
+        height = dim.height || 0;
 
-    if (props.editing) {
-      info.editing = props.editing;
-      info.editingProp = props.editing;
+    //Scale image size to the area
+    let new_iw = area.width;
+    let new_ih = (new_iw * height) / width;
+    if (new_ih < area.height) {
+      new_ih = area.height;
+      new_iw = (new_ih * width) / height;
     }
-    if (props.cropIn) info.cropIn = props.cropIn;
 
-    if (image.uri != this.state.image.uri || rs != this.state.resizeMode) {
-      this.getImageSize(image).then(
-        dim => {
-          let width = rs === "contain" ? w : dim.width || 0,
-            height = rs === "contain" ? h : dim.height || 0;
-
-          //Scale image size to the area
-          var new_iw = w;
-          var new_ih = (new_iw * height) / width;
-          if (new_ih < h) {
-            new_ih = h;
-            new_iw = (new_ih * width) / height;
-          }
-          iw = new_iw;
-          ih = new_ih;
-
-          info.image = Object.assign({ x: 0, y: 0 }, image, {
-            width: iw,
-            height: ih
-          });
-          _this.setState(info);
-        },
-        () => {
-          info.image = Object.assign({ x: 0, y: 0 }, image, {
-            width: w,
-            height: h
-          });
-          _this.setState(info);
-        }
-      );
-    } else {
-      this.setState(info);
+    return {
+      width: new_iw,
+      height: new_ih
     }
   }
 
-  getImageSize(image) {
-    return new Promise((resolve, reject) => {
-      image = typeof image == "object" ? image : { uri: image };
-      let uri = image.uri;
-      if (image.width && image.height) {
-        resolve({ width: image.width, height: image.height });
-      } else if (uri) {
-        if (/^http/i.test(uri) || /^file:/.test(uri)) {
-          Image.getSize(
-            uri,
-            (w, h) => {
-              resolve({ width: w, height: h });
-            },
-            reject
-          );
+  static _build(props, state) {
+    let info = {},
+        w = props.width || WW,
+        h = props.height || WW,
+        image = typeof props.image == "object" ? props.image : (props.image ? { ...ImageEdit.imageDefaults, uri: props.image} : null);
+
+    if (typeof props.width != 'undefined' || !state.image.width) info.width = w;
+    if (typeof props.height != 'undefined' || !state.image.height) info.height = h;
+
+    if (typeof props.editing != 'undefined') {
+      info.editing = props.editing;
+      info.editingProp = props.editing;
+    }
+
+    if (typeof props.cropIn != 'undefined') info.cropIn = props.cropIn;
+    if (typeof props.scaled != 'undefined') info.scaled = props.scaled;
+    else info.scaled = state.scaled;
+    if (typeof props.resizeMode != 'undefined') info.resizeMode = props.resizeMode;
+    else info.resizeMode = state.resizeMode;
+
+    if (image && image.uri != state.image.uri){
+      image.x = image.x || 0;
+      image.y = image.y || 0;
+      let hasDimensions = true;
+      if(!image.width && !image.height){
+        hasDimensions = false;
+        if(ImageEdit.isNumeric(image.uri)){
+          let s = resolveAssetSource(image.uri);
+          if(s) image = {...image, ...s};
         } else {
-          const info = resolveAssetSource({ uri: uri });
-          if (info.width && info.height) resolve(info);
-          else reject();
+          let size = resolveAssetSource({ uri: image.uri });
+          if (size.width && size.height){
+            image.width = size.width;
+            image.height = size.height;
+          }
         }
-      } else reject();
-    });
+
+      }
+
+      let ext = (image.path ? image.path : image.uri).toLowerCase().split('.');
+      ext = ext[ext.length-1];
+      let type = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext) || (image.mime && /image/.test(image.mime)) ? 'image' : 'video';
+      image.type = type;
+
+      if(image.width && image.height && (!info.scaled || (info.scaled && !hasDimensions) || (!info.scaled && info.resizeMode === "contain"))){
+        let sd = ImageEdit.scaledDimensions({width: w, height: h}, {width: image.width, height: image.height});
+        image.width = sd.width;
+        image.height = sd.height;
+      }
+
+      info.image = image;
+    }
+    return info;
+
+  }
+
+  static isNumeric(n){
+    return !isNaN(n) && isFinite(n);
   }
 
   enable() {
@@ -285,8 +307,8 @@ export default class ImageEdit extends Component {
 
         if (!this.state.cropIn) {
           //Keep the image size >= to crop area
-          var new_iw = info.image.width,
-            new_ih = info.image.height;
+          let new_iw = info.image.width,
+              new_ih = info.image.height;
           if (this.state.width > info.image.width) {
             new_iw = this.state.width;
             new_ih = (new_iw * this.initH) / this.initW;
@@ -301,10 +323,10 @@ export default class ImageEdit extends Component {
           info.image.height = new_ih;
 
           //position
-          var x = this.state.image.x;
-          var y = this.state.image.y;
-          var maxx = -1 * Math.abs(info.image.width - this.state.width),
-            maxy = -1 * Math.abs(info.image.width - this.state.height);
+          let x = this.state.image.x;
+          let y = this.state.image.y;
+          let maxx = -1 * Math.abs(info.image.width - this.state.width),
+              maxy = -1 * Math.abs(info.image.width - this.state.height);
 
           if (x < maxx) x = maxx;
           if (x > 0) x = 0;
@@ -324,12 +346,12 @@ export default class ImageEdit extends Component {
     } else if (e.nativeEvent.touches.length == 1) {
       //Moving
       if (this.state.isMoving) {
-        var x = this.initX + gestureState.dx,
-          y = this.initY + gestureState.dy;
+        let x = this.initX + gestureState.dx,
+            y = this.initY + gestureState.dy;
 
         if (!this.state.cropIn) {
-          var maxx = -1 * Math.abs(this.state.image.width - this.state.width),
-            maxy = -1 * Math.abs(this.state.image.height - this.state.height);
+          let maxx = -1 * Math.abs(this.state.image.width - this.state.width),
+              maxy = -1 * Math.abs(this.state.image.height - this.state.height);
 
           if (x < maxx) x = maxx;
           if (x > 0) x = 0;
@@ -354,150 +376,171 @@ export default class ImageEdit extends Component {
 
   //Render Image
   renderImage() {
-    if (this.state.image.uri) {
-      return (
-        <Image
-          ref={ref => (this.image = ref)}
-          style={{
-            width: this.state.image.width,
-            height: this.state.image.height,
-            top: this.state.image.y,
-            left: this.state.image.x
-          }}
-          source={{ uri: this.state.image.uri }}
-          resizeMode={this.state.resizeMode}
-        />
-      );
+    if (this.state.image.uri){
+      let uri = this.state.image.path ? this.state.image.path : this.state.image.uri;
+      let style = {
+        width: this.state.image.width,
+        height: this.state.image.height,
+        top: this.state.image.y,
+        left: this.state.image.x
+      };
+
+      switch(this.state.image.type){
+        case 'image':
+          return (
+              <Image
+                  ref={ref => (this.image = ref)}
+                  style={style}
+                  source={{ uri: uri }}
+                  resizeMode={this.state.resizeMode}
+              />
+          );
+          break;
+        case 'video':
+          return (
+              <Video
+                  ref={(ref) => this.image = ref}
+                  source={{ uri: uri }}
+                  resizeMode={this.state.resizeMode}
+                  paused={false}
+                  fullscreen={false}
+                  controls={false}
+                  muted={true}
+                  repeat={true}
+                  style={style}
+              />
+          )
+          break;
+      }
+
     }
-    return null;
   }
 
   renderGrids() {
     if (!this.props.showGrids) return;
     return [
       <View
-        key="gl1"
-        style={[
-          styles.gridLine,
-          styles.gl1,
-          {
-            position: !this.state.editing ? "relative" : "absolute",
-            display: !this.state.editing ? "none" : "flex"
-          },
-          {
-            borderColor: this.props.gridColor
-              ? this.props.gridColor
-              : this.defaultColor
-          },
-          this.props.gridStyle
-        ]}
+          key="gl1"
+          style={[
+            styles.gridLine,
+            styles.gl1,
+            {
+              position: !this.state.editing ? "relative" : "absolute",
+              display: !this.state.editing ? "none" : "flex"
+            },
+            {
+              borderColor: this.props.gridColor
+                  ? this.props.gridColor
+                  : this.defaultColor
+            },
+            this.props.gridStyle
+          ]}
       />,
       <View
-        key="gl2"
-        style={[
-          styles.gridLine,
-          styles.gl2,
-          {
-            position: !this.state.editing ? "relative" : "absolute",
-            display: !this.state.editing ? "none" : "flex"
-          },
-          {
-            borderColor: this.props.gridColor
-              ? this.props.gridColor
-              : this.defaultColor
-          },
-          this.props.gridStyle
-        ]}
+          key="gl2"
+          style={[
+            styles.gridLine,
+            styles.gl2,
+            {
+              position: !this.state.editing ? "relative" : "absolute",
+              display: !this.state.editing ? "none" : "flex"
+            },
+            {
+              borderColor: this.props.gridColor
+                  ? this.props.gridColor
+                  : this.defaultColor
+            },
+            this.props.gridStyle
+          ]}
       />,
       <View
-        key="gl3"
-        style={[
-          styles.gridLine,
-          styles.gl3,
-          {
-            position: !this.state.editing ? "relative" : "absolute",
-            display: !this.state.editing ? "none" : "flex"
-          },
-          {
-            borderColor: this.props.gridColor
-              ? this.props.gridColor
-              : this.defaultColor
-          },
-          this.props.gridStyle
-        ]}
+          key="gl3"
+          style={[
+            styles.gridLine,
+            styles.gl3,
+            {
+              position: !this.state.editing ? "relative" : "absolute",
+              display: !this.state.editing ? "none" : "flex"
+            },
+            {
+              borderColor: this.props.gridColor
+                  ? this.props.gridColor
+                  : this.defaultColor
+            },
+            this.props.gridStyle
+          ]}
       />,
       <View
-        key="gl4"
-        style={[
-          styles.gridLine,
-          styles.gl4,
-          {
-            position: !this.state.editing ? "relative" : "absolute",
-            display: !this.state.editing ? "none" : "flex"
-          },
-          {
-            borderColor: this.props.gridColor
-              ? this.props.gridColor
-              : this.defaultColor
-          },
-          this.props.gridStyle
-        ]}
+          key="gl4"
+          style={[
+            styles.gridLine,
+            styles.gl4,
+            {
+              position: !this.state.editing ? "relative" : "absolute",
+              display: !this.state.editing ? "none" : "flex"
+            },
+            {
+              borderColor: this.props.gridColor
+                  ? this.props.gridColor
+                  : this.defaultColor
+            },
+            this.props.gridStyle
+          ]}
       />
     ];
   }
 
   renderButtons() {
-    var buttons = [];
+    let buttons = [];
     if (!this.state.editing && this.props.showEditButton) {
       buttons.push(
-        <TouchableOpacity
-          key="editbtn"
-          style={[
-            styles.editButton,
-            {
-              top: 10,
-              display: this.state.editing ? "none" : "flex",
-              position: this.state.editing ? "relative" : "absolute"
-            }
-          ]}
-          onPress={this.onEdit.bind(this)}
-        >
-          <Icon
-            reverse
-            size={20}
-            name="pencil"
-            color={
-              this.props.buttonsColor
-                ? this.props.buttonsColor
-                : this.defaultColor
-            }
-            type="simple-line-icon"
-          />
-        </TouchableOpacity>
+          <TouchableOpacity
+              key="editbtn"
+              style={[
+                styles.editButton,
+                {
+                  top: 10,
+                  display: this.state.editing ? "none" : "flex",
+                  position: this.state.editing ? "relative" : "absolute"
+                }
+              ]}
+              onPress={this.onEdit.bind(this)}
+          >
+            <Icon
+                reverse
+                size={20}
+                name="crop"
+                color={
+                  this.props.buttonsColor
+                      ? this.props.buttonsColor
+                      : this.defaultColor
+                }
+            />
+          </TouchableOpacity>
       );
     } else if (this.state.editing && this.props.showSaveButtons) {
       buttons.push(
-        <View key="buttonbtns" style={styles.buttonsWrap}>
-          <TouchableOpacity
-            style={[styles.cancelButton]}
-            onPress={this.onCancel.bind(this)}
-          >
-            <Text style={styles.buttonText}>{this.props.cancelButtonText}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              {
-                backgroundColor: this.props.buttonsColor
-                  ? this.props.buttonsColor
-                  : this.defaultColor
-              }
-            ]}
-            onPress={this.onSave.bind(this)}
-          >
-            <Text style={styles.buttonText}>{this.props.saveButtonText}</Text>
-          </TouchableOpacity>
-        </View>
+          <View key="buttonbtns" style={styles.buttonsWrap}>
+            <TouchableOpacity
+                style={[styles.cancelButton]}
+                onPress={this.onCancel.bind(this)}
+            >
+              <Text style={styles.buttonText}>{this.props.cancelButtonText}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  {
+                    backgroundColor: this.props.buttonsColor
+                        ? this.props.buttonsColor
+                        : this.defaultColor
+                  }
+                ]}
+                onPress={this.onSave.bind(this)}
+            >
+              <Text style={styles.buttonText}>{this.props.saveButtonText}</Text>
+            </TouchableOpacity>
+          </View>
       );
     }
 
@@ -524,31 +567,32 @@ export default class ImageEdit extends Component {
   }
 
   render() {
+    let pr = this.getPanResponder();
     return (
-      <View style={[styles.wrapper, this.props.containerStyle]}>
-        <View
-          {...this._panResponder.panHandlers}
-          style={[
-            styles.cropArea,
-            {
-              width: this.state.width,
-              height: this.state.height,
-              borderBottomWidth: !this.state.editing ? 0 : 1
-            },
-            {
-              backgroundColor: this.props.backgroundColor
-                ? this.props.backgroundColor
-                : this.defaultColor
-            },
-            this.props.areaStyle
-          ]}
-        >
-          {this.renderImage()}
-          {this.renderGrids()}
+        <View style={[styles.wrapper, this.props.containerStyle]}>
+          <View
+              {...pr.panHandlers}
+              style={[
+                styles.cropArea,
+                {
+                  width: this.state.width,
+                  height: this.state.height,
+                  borderBottomWidth: !this.state.editing ? 0 : 0
+                },
+                {
+                  backgroundColor: this.props.backgroundColor
+                      ? this.props.backgroundColor
+                      : this.defaultColor
+                },
+                this.props.areaStyle
+              ]}
+          >
+            {this.renderImage()}
+            {this.renderGrids()}
+          </View>
+          {this.renderChildren()}
+          {this.renderButtons()}
         </View>
-        {this.renderChildren()}
-        {this.renderButtons()}
-      </View>
     );
   }
 }

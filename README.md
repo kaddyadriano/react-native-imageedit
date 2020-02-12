@@ -3,6 +3,10 @@
 This React Native component `ImageEdit` allows you to edit images inline for cropping. This component will provide you all the measurements you need for cropping so you can finish up with the cropping from a server or from other sources.
 
 ## Updates
+### V1.0.2
+* Fixed `resolveAssetSource` import.
+* Added 2 new props `saveButtonText` and `cancelButtonText`.
+
 ### V1.0.1
 * Fixed `componentWillReceiveProps` deprecation.
 
@@ -66,6 +70,8 @@ Render
 |cropIn|Bool|Allow to crop smaller that the crop area. Default: false|
 |showEditButton|Bool|Show edit button. Default: true|
 |showSaveButtons|Bool|Show save buttons. Default: true|
+|saveButtonText|String|Save button text. Default: Save|
+|cancelButtonText|String|Cancel button text. Default: Cancel|
 |showGrids|Bool|Show grids while editing. Default: true|
 |containerStyle|Object|Component container style|
 |areaStyle|Object|Crop area container style|
