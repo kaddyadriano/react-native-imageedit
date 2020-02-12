@@ -39,7 +39,8 @@ export default class ImageEdit extends Component {
     onSave: PropTypes.func,
     onCancel: PropTypes.func,
     saveButtonText: PropTypes.string,
-    cancelButtonText: PropTypes.string
+    cancelButtonText: PropTypes.string,
+    resizeMode: PropTypes.string
   };
 
   static defaultProps = {
@@ -59,7 +60,8 @@ export default class ImageEdit extends Component {
     gridColor: this.defaultColor,
     buttonsColor: this.defaultColor,
     saveButtonText: "Save",
-    cancelButtonText: "Cancel"
+    cancelButtonText: "Cancel",
+    resizeMode: "stretch"
   };
 
   static imageDefaults = {
@@ -83,7 +85,8 @@ export default class ImageEdit extends Component {
       editing: this.props.editing,
       editingProp: this.props.editing,
       isPinching: false,
-      isMoving: false
+      isMoving: false,
+      resizeMode: this.props.resizeMode
     };
 
     this.defaultColor = "#C1272D";
@@ -157,7 +160,8 @@ export default class ImageEdit extends Component {
         state.image.uri != image.uri ||
         props.editing != state.editingProp ||
         props.cropIn != state.cropIn ||
-        props.scaled != state.scaled
+        props.scaled != state.scaled ||
+        props.resizeMode != state.resizeMode
     );
   }
 
@@ -191,7 +195,7 @@ export default class ImageEdit extends Component {
     let info = {},
         w = props.width || WW,
         h = props.height || WW,
-        image = typeof props.image == "object" ? props.image : (props.image ? { ...ImageEdit.imageDefaults, uri: props.image} : null)
+        image = typeof props.image == "object" ? props.image : (props.image ? { ...ImageEdit.imageDefaults, uri: props.image} : null);
 
     if (typeof props.width != 'undefined' || !state.image.width) info.width = w;
     if (typeof props.height != 'undefined' || !state.image.height) info.height = h;
@@ -200,9 +204,12 @@ export default class ImageEdit extends Component {
       info.editing = props.editing;
       info.editingProp = props.editing;
     }
+
     if (typeof props.cropIn != 'undefined') info.cropIn = props.cropIn;
     if (typeof props.scaled != 'undefined') info.scaled = props.scaled;
     else info.scaled = state.scaled;
+    if (typeof props.resizeMode != 'undefined') info.resizeMode = props.resizeMode;
+    else info.resizeMode = state.resizeMode;
 
     if (image && image.uri != state.image.uri){
       image.x = image.x || 0;
@@ -228,7 +235,7 @@ export default class ImageEdit extends Component {
       let type = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext) || (image.mime && /image/.test(image.mime)) ? 'image' : 'video';
       image.type = type;
 
-      if(image.width && image.height && (!info.scaled || (info.scaled && !hasDimensions))){
+      if(image.width && image.height && (!info.scaled || (info.scaled && !hasDimensions) || (!info.scaled && info.resizeMode === "contain"))){
         let sd = ImageEdit.scaledDimensions({width: w, height: h}, {width: image.width, height: image.height});
         image.width = sd.width;
         image.height = sd.height;
@@ -385,7 +392,7 @@ export default class ImageEdit extends Component {
                   ref={ref => (this.image = ref)}
                   style={style}
                   source={{ uri: uri }}
-                  resizeMode={"stretch"}
+                  resizeMode={this.state.resizeMode}
               />
           );
           break;
@@ -394,7 +401,7 @@ export default class ImageEdit extends Component {
               <Video
                   ref={(ref) => this.image = ref}
                   source={{ uri: uri }}
-                  resizeMode={"stretch"}
+                  resizeMode={this.state.resizeMode}
                   paused={false}
                   fullscreen={false}
                   controls={false}
@@ -542,7 +549,21 @@ export default class ImageEdit extends Component {
 
   //Render component children
   renderChildren() {
-    if (this.props.children) return this.props.children;
+    if (this.props.children) {
+      return (
+        <View
+          style={[
+            styles.children,
+            this.state.editing && this.props.showSaveButtons
+              ? { bottom: 50 }
+              : null
+          ]}
+        >
+          {this.props.children}
+        </View>
+      );
+    }
+    return null;
   }
 
   render() {
@@ -627,7 +648,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    height: 50
   },
   editButton: {
     position: "absolute",
@@ -638,16 +660,27 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,1)",
     paddingVertical: 8,
     paddingHorizontal: 15,
-    borderRadius: 5
+    borderRadius: 5,
+    alignContent: "center",
+    justifyContent: "center"
   },
   cancelButton: {
     backgroundColor: "rgba(0,0,0,0.5)",
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 15,
-    borderRadius: 5
+    borderRadius: 5,
+    alignContent: "center",
+    justifyContent: "center"
   },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 14
+  },
+  children: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "transparent"
   }
 });
