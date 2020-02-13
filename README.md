@@ -3,6 +3,11 @@
 This React Native component `ImageEdit` allows you to edit images inline for cropping. This component will provide you all the measurements you need for cropping so you can finish up with the cropping from a server or from other sources.
 
 ## Updates
+### V1.1.0
+* Video Support
+* Improvements
+* Bug Fixes
+* New prop: `scaled`
 ### V1.0.2
 * Fixed `resolveAssetSource` import.
 * Added 2 new props `saveButtonText` and `cancelButtonText`.
@@ -16,8 +21,9 @@ This React Native component `ImageEdit` allows you to edit images inline for cro
 npm install react-native-imageedit --save
 ```
 
-## Demo
-![Demo Animation](docs/animation.gif)
+## Screenshots
+![Demo Animation 1](docs/ImageEditVideo.gif)
+![Demo Animation 2](docs/animation.gif)
 ## Simple Usage
 
 Import
@@ -26,12 +32,21 @@ import ImageEdit from 'react-native-imageedit'
 ```
 Render
 ```jsx
+//Simple
+
 <ImageEdit
-  image="https://source.unsplash.com/daily" //Image uri
+  image="https://source.unsplash.com/daily" //Image/Video uri
   onSave={info => console.log(info)}
 />
 
-//OR
+//Local Image
+
+<ImageEdit
+  image={require('./path/to/image-or-video.jpg')}
+  onSave={info => console.log(info)}
+/>
+
+//Image object
 
 <ImageEdit
   width={400} //Crop area width
@@ -57,6 +72,21 @@ Render
     </TouchableOpacity>
 </ImageEdit>
 
+//Initial scaling and positioning
+
+<ImageEdit
+  width={400}
+  height={300}
+  scaled={true} //To enable pre scaling and positioning
+  image={{
+          uri :"https://source.unsplash.com/daily", 
+          width: 1200, //initial width
+          height: 700, //initial height
+          x: -100, //initial x
+          y: -230 //initial y
+          }}
+/>
+
 ```
 
 ## Props
@@ -81,6 +111,7 @@ Render
 |onEdit|Func|Edit button onPress callback|
 |onSave|Func|Save button onPress callback. Will pass cropping info object as argument|
 |onCancel|Func|Cancel button onPress callback|
+|scaled|Bool|If true, Image Object size and position x ,and y will initially be kept. This is used to pre position or pre scale the image or video. Default: false|
 
 ## Methods
 
