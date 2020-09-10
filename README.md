@@ -6,7 +6,8 @@ This React Native component `ImageEdit` allows you to edit images inline for cro
 ### V1.1.1
 * Specify source type from uri query string [type, ext, extension, image, fm]. ex: `https://source.unsplash.com/daily?type=image` Look below for more examples.
 <details>
-<summary> ### V1.1.0 </summary>
+<summary> V1.1.0 </summary>
+  
 * Video Support
 * Improvements
 * Bug Fixes
@@ -14,12 +15,14 @@ This React Native component `ImageEdit` allows you to edit images inline for cro
 
 </details>
 <details>
-<summary> ### V1.0.2 </summary>
+<summary> V1.0.2 </summary>
+  
 * Fixed `resolveAssetSource` import.
 * Added 2 new props `saveButtonText` and `cancelButtonText`.
 </details>
 <details>
-<summary> ### V1.0.1 </summary>
+<summary> V1.0.1 </summary>
+  
 * Fixed `componentWillReceiveProps` deprecation.
 </details>
 
