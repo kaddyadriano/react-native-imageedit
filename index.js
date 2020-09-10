@@ -133,19 +133,28 @@ export default class ImageEdit extends Component {
   }
 
   fixImageSize(){
-    if(this.state.image.uri && !this.state.image.width){
-      let uri = this.state.image.uri;
-      if(/^http/i.test(uri) || /^file:/.test(uri)){
-        Image.getSize(
-            uri,
-            (w, h) => {
-              let sd = ImageEdit.scaledDimensions({width: this.state.width, height: this.state.height}, {width: w, height: h});
-              this.setState({image: { ...this.state.image, width: sd.width, height: sd.height }});
-            },
-            () => {}
-        );
+    return ImageEdit._imageSize(this.state.image, this.state.width, this.state.height).then(sd => {
+      this.setState({image: { ...this.state.image, width: sd.width, height: sd.height }});
+    });
+  }
+
+  static _imageSize(image){
+    let width = arguments[1], height = arguments[2];
+    return new Promise(resolve => {
+      if(image.uri && !image.width){
+        let uri = image.uri;
+        if(/^http/i.test(uri) || /^file:/.test(uri)){
+          Image.getSize(
+              uri,
+              (w, h) => {
+                let sd = ImageEdit.scaledDimensions({width: width, height: height}, {width: w, height: h});
+                resolve(sd);
+              },
+              () => {}
+          );
+        }
       }
-    }
+    });
   }
 
   static changed(props, state) {
@@ -174,17 +183,29 @@ export default class ImageEdit extends Component {
         height = dim.height || 0;
 
     //Scale image size to the area
-    let new_iw = area.width;
-    let new_ih = (new_iw * height) / width;
-    if (new_ih < area.height) {
-      new_ih = area.height;
-      new_iw = (new_ih * width) / height;
+    let new_iw = width || area.width;
+    let new_ih = height || area.height;
+    if(width && height && area.width && area.height){
+      new_iw = area.width;
+      new_ih = (new_iw * height) / width;
+      if (new_ih < area.height) {
+        new_ih = area.height;
+        new_iw = (new_ih * width) / height;
+      }
     }
 
     return {
       width: new_iw,
       height: new_ih
     }
+  }
+
+  static _type(image){
+    let ext = (image.path || image.url || image.uri).split('?')[0].toLowerCase().split('.');
+    ext = ext[ext.length-1];
+    return /(((fm)|(type)|(image)|(ext)|(extension))=((jpe?g)|(jpeg)|(png)|(gif)|(webp)|(bmp)|(svg)|(heic)|(image)))|(image)|(unsplash)/.test(image.uri)
+    || ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext) || (image.mime && /image/.test(image.mime)) ? 'image' : 'video';
+
   }
 
   static _build(props, state) {
@@ -215,6 +236,7 @@ export default class ImageEdit extends Component {
           if(s) image = {...image, ...s, path: s.uri};
         } else {
           let size = resolveAssetSource({ uri: image.uri });
+
           if (size.width && size.height){
             image.width = size.width;
             image.height = size.height;
@@ -223,15 +245,19 @@ export default class ImageEdit extends Component {
 
       }
 
-      let ext = (image.path || image.url || image.uri).toLowerCase().split('.');
-      ext = ext[ext.length-1];
-      let type = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "heic"].includes(ext) || (image.mime && /image/.test(image.mime)) ? 'image' : 'video';
-      image.type = type;
+      image.type = ImageEdit._type(image);
 
       if(image.width && image.height && (!info.scaled || (info.scaled && !hasDimensions))){
         let sd = ImageEdit.scaledDimensions({width: w, height: h}, {width: image.width, height: image.height});
         image.width = sd.width;
         image.height = sd.height;
+      }
+
+      if(!image.width || !image.height){
+        ImageEdit._imageSize(image, info.width, info.height).then(d => { console.log(d);
+          image.width = d.width,
+              image.height = d.height
+        });
       }
 
       info.image = image;
@@ -372,8 +398,8 @@ export default class ImageEdit extends Component {
     if (this.state.image.uri){
       let uri = this.state.image.path ? this.state.image.path : this.state.image.uri;
       let style = {
-        width: this.state.image.width,
-        height: this.state.image.height,
+        width: this.state.image.width || this.state.width,
+        height: this.state.image.height || this.state.height,
         top: this.state.image.y,
         left: this.state.image.x
       };

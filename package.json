@@ -1,6 +1,6 @@
 {
   "name": "react-native-imageedit",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "ImageEdit is a react native component for cropping and positioning images",
   "main": "index.js",
   "scripts": {

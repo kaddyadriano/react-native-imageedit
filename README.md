@@ -3,17 +3,25 @@
 This React Native component `ImageEdit` allows you to edit images inline for cropping. This component will provide you all the measurements you need for cropping so you can finish up with the cropping from a server or from other sources.
 
 ## Updates
-### V1.1.0
+### V1.1.1
+* Specify source type from uri query string [type, ext, extension, image, fm]. ex: `https://source.unsplash.com/daily?type=image` Look below for more examples.
+<details>
+<summary> ### V1.1.0 </summary>
 * Video Support
 * Improvements
 * Bug Fixes
 * New prop: `scaled`
-### V1.0.2
+
+</details>
+<details>
+<summary> ### V1.0.2 </summary>
 * Fixed `resolveAssetSource` import.
 * Added 2 new props `saveButtonText` and `cancelButtonText`.
-
-### V1.0.1
+</details>
+<details>
+<summary> ### V1.0.1 </summary>
 * Fixed `componentWillReceiveProps` deprecation.
+</details>
 
 ## Installation
 
@@ -89,6 +97,17 @@ Render
 
 ```
 
+If the source uri doesn't have an extension, and we can't figure out what the type is, you'll have to add a query string to the uri to specify what the image type is or otherwise the source will be considered as a video. 
+Note all unsplash urls are considered as images.
+Example:
+```
+https://source.unsplash.com/daily?image=jpeg
+https://source.unsplash.com/daily?type=image
+https://source.unsplash.com/daily?extension=jpg
+https://source.unsplash.com/daily?ext=jpg
+https://source.unsplash.com/daily?fm=png
+```
+
 ## Props
 
 |Prop|Type|Description|
@@ -139,4 +158,4 @@ Render
 }
 
 ```
-You will need this data for image cropping from server or other places. Hopefully in the future we will be able to crop the images right from this component.
+You will need this data for image cropping from a server or other methods. Hopefully in the future we will be able to crop the images right from this component.
